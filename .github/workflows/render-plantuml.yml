@@ -15,7 +15,7 @@ jobs:
     # Avoid infinite loops when the workflow auto-commits generated images.
     if: github.actor != 'github-actions[bot]'
 
-    # Required for committing back to the repo with the default GITHUB_TOKEN. :contentReference[oaicite:1]{index=1}
+    # Required for committing back to the repo with the default GITHUB_TOKEN.
     permissions:
       contents: write
 
@@ -25,25 +25,26 @@ jobs:
         with:
           persist-credentials: true
 
-      # Export PlantUML: args are forwarded to PlantUML CLI. :contentReference[oaicite:2]{index=2}
+      - name: Ensure output directories exist
+        run: |
+          mkdir -p diagrams/out/png diagrams/out/jpg
+
+      # IMPORTANT: export-plantuml-action runs PlantUML in a Docker container.
+      # The repo is mounted at /github/workspace inside that container, so paths must use /github/workspace.
       - name: Render PNG diagrams
         uses: dreamsinbits/export-plantuml-action@v1
         with:
           args: >
             -v
             -tpng
-            -o ${{ github.workspace }}/diagrams/out/png
-            -config diagrams/config/config.puml
-            diagrams/src
+            -o /github/workspace/diagrams/out/png
+            -config /github/workspace/diagrams/config/config.puml
+            /github/workspace/diagrams/src
 
-      # PlantUML CLI supports PNG/SVG/EPS/PDF outputs; JPG is not a core output flag in the official CLI docs,
-      # so JPG is best handled as a conversion step. :contentReference[oaicite:3]{index=3}
       - name: Convert PNG -> JPG (optional)
         run: |
           sudo apt-get update
           sudo apt-get install -y imagemagick
-
-          mkdir -p diagrams/out/jpg
 
           # Preserve folder structure under diagrams/out/png
           while IFS= read -r -d '' f; do
@@ -53,7 +54,6 @@ jobs:
             convert "$f" -quality 92 "$out"
           done < <(find diagrams/out/png -type f -name '*.png' -print0)
 
-      # Auto-commit rendered outputs back to repo. :contentReference[oaicite:4]{index=4}
       - name: Commit rendered diagrams
         uses: stefanzweifel/git-auto-commit-action@v7
         with:
