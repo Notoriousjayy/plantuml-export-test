@@ -1,0 +1,7 @@
+' Global PlantUML config injected via -config
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam dpi 150
+skinparam roundcorner 10
+skinparam ArrowColor Black
+skinparam DefaultFontName Arial

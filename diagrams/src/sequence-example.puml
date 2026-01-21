@@ -1,0 +1,14 @@
+@startuml
+title Sequence Example
+actor User
+participant "Web UI" as UI
+participant "API" as API
+database "DB" as DB
+
+User -> UI: Click "Save"
+UI -> API: POST /items
+API -> DB: INSERT item
+DB --> API: OK
+API --> UI: 201 Created
+UI --> User: Success
+@enduml

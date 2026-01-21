@@ -1,0 +1,61 @@
+name: Render PlantUML diagrams
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "diagrams/**/*.puml"
+      - ".github/workflows/render-plantuml.yml"
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+
+    # Avoid infinite loops when the workflow auto-commits generated images.
+    if: github.actor != 'github-actions[bot]'
+
+    # Required for committing back to the repo with the default GITHUB_TOKEN. :contentReference[oaicite:1]{index=1}
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: true
+
+      # Export PlantUML: args are forwarded to PlantUML CLI. :contentReference[oaicite:2]{index=2}
+      - name: Render PNG diagrams
+        uses: dreamsinbits/export-plantuml-action@v1
+        with:
+          args: >
+            -v
+            -tpng
+            -o ${{ github.workspace }}/diagrams/out/png
+            -config diagrams/config/config.puml
+            diagrams/src
+
+      # PlantUML CLI supports PNG/SVG/EPS/PDF outputs; JPG is not a core output flag in the official CLI docs,
+      # so JPG is best handled as a conversion step. :contentReference[oaicite:3]{index=3}
+      - name: Convert PNG -> JPG (optional)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick
+
+          mkdir -p diagrams/out/jpg
+
+          # Preserve folder structure under diagrams/out/png
+          while IFS= read -r -d '' f; do
+            rel="${f#diagrams/out/png/}"
+            out="diagrams/out/jpg/${rel%.png}.jpg"
+            mkdir -p "$(dirname "$out")"
+            convert "$f" -quality 92 "$out"
+          done < <(find diagrams/out/png -type f -name '*.png' -print0)
+
+      # Auto-commit rendered outputs back to repo. :contentReference[oaicite:4]{index=4}
+      - name: Commit rendered diagrams
+        uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          commit_message: "chore(diagrams): render PlantUML"
+          file_pattern: "diagrams/out"

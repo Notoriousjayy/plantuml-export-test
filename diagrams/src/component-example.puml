@@ -1,0 +1,14 @@
+@startuml
+title Component Example
+package "Frontend" {
+  [Web UI]
+}
+package "Backend" {
+  [API Service]
+}
+database "Data" {
+  [PostgreSQL]
+}
+[Web UI] --> [API Service]
+[API Service] --> [PostgreSQL]
+@enduml
