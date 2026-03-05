@@ -27,7 +27,7 @@ jobs:
 
       - name: Ensure output directories exist
         run: |
-          mkdir -p diagrams/out/png diagrams/out/jpg
+          mkdir -p diagrams/out/png diagrams/out/svg diagrams/out/jpg
 
       # IMPORTANT: export-plantuml-action runs PlantUML in a Docker container.
       # The repo is mounted at /github/workspace inside that container, so paths must use /github/workspace.
@@ -38,6 +38,16 @@ jobs:
             -v
             -tpng
             -o /github/workspace/diagrams/out/png
+            -config /github/workspace/diagrams/config/config.puml
+            /github/workspace/diagrams/src
+
+      - name: Render SVG diagrams
+        uses: dreamsinbits/export-plantuml-action@v1
+        with:
+          args: >
+            -v
+            -tsvg
+            -o /github/workspace/diagrams/out/svg
             -config /github/workspace/diagrams/config/config.puml
             /github/workspace/diagrams/src
 
