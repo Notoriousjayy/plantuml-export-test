@@ -2,7 +2,6 @@
 ' Common styling for AppSec process diagrams.
 ' Design goals: clear purpose, consistent layout, minimal palette, and high legibility.
 
-left to right direction
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
 skinparam roundcorner 10
