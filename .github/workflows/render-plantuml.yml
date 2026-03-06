@@ -5,17 +5,18 @@ on:
   push:
     branches: [ "main" ]
     paths:
-      - "diagrams/**/*.puml"
+      - "diagrams/src/**/*.puml"
+      - "diagrams/includes/**/*.puml"
+      - "diagrams/config/**/*.puml"
+      - ".github/actions/render-plantuml/**"
       - ".github/workflows/render-plantuml.yml"
 
 jobs:
   render:
     runs-on: ubuntu-latest
 
-    # Avoid infinite loops when the workflow auto-commits generated images.
     if: github.actor != 'github-actions[bot]'
 
-    # Required for committing back to the repo with the default GITHUB_TOKEN.
     permissions:
       contents: write
 
@@ -24,45 +25,28 @@ jobs:
         uses: actions/checkout@v5
         with:
           persist-credentials: true
-
       - name: Ensure output directories exist
+        shell: bash
         run: |
+          set -euo pipefail
           mkdir -p diagrams/out/png diagrams/out/svg diagrams/out/jpg
 
-      # IMPORTANT: export-plantuml-action runs PlantUML in a Docker container.
-      # The repo is mounted at /github/workspace inside that container, so paths must use /github/workspace.
-      - name: Render PNG diagrams
-        uses: dreamsinbits/export-plantuml-action@v1
-        with:
-          args: >
-            -v
-            -tpng
-            -o /github/workspace/diagrams/out/png
-            -config /github/workspace/diagrams/config/config.puml
-            /github/workspace/diagrams/src
-
-      - name: Render SVG diagrams
-        uses: dreamsinbits/export-plantuml-action@v1
-        with:
-          args: >
-            -v
-            -tsvg
-            -o /github/workspace/diagrams/out/svg
-            -config /github/workspace/diagrams/config/config.puml
-            /github/workspace/diagrams/src
-
-      - name: Convert PNG -> JPG (optional)
+      - name: Link config into diagrams/src
+        shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install -y imagemagick
+          set -euo pipefail
+          ln -sf ../config/config.puml diagrams/src/config.puml
 
-          # Preserve folder structure under diagrams/out/png
-          while IFS= read -r -d '' f; do
-            rel="${f#diagrams/out/png/}"
-            out="diagrams/out/jpg/${rel%.png}.jpg"
-            mkdir -p "$(dirname "$out")"
-            convert "$f" -quality 92 "$out"
-          done < <(find diagrams/out/png -type f -name '*.png' -print0)
+      - name: Render diagrams (latest PlantUML)
+        uses: ./.github/actions/render-plantuml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          source-dir: diagrams/src
+          formats: "png svg"
+          generate-jpg: "true"
+          fail-on-error: "true"
+          plantuml-version: "latest"
 
       - name: Commit rendered diagrams
         uses: stefanzweifel/git-auto-commit-action@v7

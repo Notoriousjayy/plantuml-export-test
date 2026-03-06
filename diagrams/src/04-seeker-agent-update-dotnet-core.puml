@@ -1,0 +1,77 @@
+@startuml
+title Seeker Agent Update - .NET Core Process
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam defaultFontName Arial
+skinparam activity {
+  BackgroundColor #F7F7F7
+  BorderColor #4C4C4C
+  FontColor #222222
+  DiamondBackgroundColor #FFF6E5
+  DiamondBorderColor #B26B00
+  DiamondFontColor #222222
+  StartColor #5B8FF9
+  EndColor #5B8FF9
+  BarColor #5B8FF9
+}
+skinparam partition {
+  BorderColor #BDBDBD
+  BackgroundColor #FAFAFA
+  FontColor #222222
+}
+skinparam note {
+  BackgroundColor #F5F9FF
+  BorderColor #5B8FF9
+  FontColor #222222
+}
+hide empty description
+
+legend right
+|= Field |= Value |
+| Process | .NET Core Seeker agent refresh for host, container, or Kubernetes workloads |
+| Primary message | For .NET Core, replace the agent directory, preserve CORECLR_* and SEEKER_* settings, restart the host, and validate reporting. |
+| Trigger | .NET Core application included in Seeker agent refresh scope |
+| Entry criteria | Server upgraded; profiler-based attachment is defined by environment variables |
+| Exit criteria | Host or container restarted with healthy profiler loading and Seeker reporting |
+| Key evidence | Agent ZIP deployment log, environment-variable review, container or service restart log, Seeker validation results |
+endlegend
+
+
+start
+
+partition "Seeker Admin" {
+  :Run Connect New Agent\nfor .NET Core;
+  :Download updated agent ZIP;
+}
+
+partition "DevOps / Platform" {
+  :Replace existing agent\ndirectory contents;
+  :Verify CORECLR_ENABLE_PROFILING;
+  :Verify CORECLR_PROFILER;
+  :Verify CORECLR_PROFILER_PATH;
+  :Verify SEEKER_SERVER_URL\nand SEEKER_PROJECT_KEY;
+}
+
+partition "Application Team" {
+  :Restart Kestrel host,\nWindows service, or container;
+}
+
+partition "Application Security" {
+  :Run validation traffic;
+  :Review agent connection\nand reported version;
+}
+
+if (Profiler loaded and data visible?) then (yes)
+  partition "Application Security" {
+    :Record evidence and close;
+  }
+  stop
+else (no)
+  partition "DevOps / Platform" {
+    :Restore prior agent directory\nor prior image version;
+    :Restart workload;
+  }
+  stop
+endif
+
+@enduml

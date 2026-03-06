@@ -1,0 +1,78 @@
+@startuml
+title Seeker Agent Update - PHP Process
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam defaultFontName Arial
+skinparam activity {
+  BackgroundColor #F7F7F7
+  BorderColor #4C4C4C
+  FontColor #222222
+  DiamondBackgroundColor #FFF6E5
+  DiamondBorderColor #B26B00
+  DiamondFontColor #222222
+  StartColor #5B8FF9
+  EndColor #5B8FF9
+  BarColor #5B8FF9
+}
+skinparam partition {
+  BorderColor #BDBDBD
+  BackgroundColor #FAFAFA
+  FontColor #222222
+}
+skinparam note {
+  BackgroundColor #F5F9FF
+  BorderColor #5B8FF9
+  FontColor #222222
+}
+hide empty description
+
+legend right
+|= Field |= Value |
+| Process | PHP Seeker agent refresh for extension-based deployments |
+| Primary message | For PHP, match the agent binary to the installed PHP API version, preserve php.ini settings, restart the PHP runtime, and validate reporting. |
+| Trigger | PHP application included in Seeker agent refresh scope |
+| Entry criteria | Server upgraded; PHP app loads Seeker through php.ini or environment variables |
+| Exit criteria | PHP runtime restarted with matching seeker extension and healthy reporting |
+| Key evidence | php.ini backup, extension_dir check, binary replacement record, PHP-FPM or Apache restart log, Seeker validation results |
+endlegend
+
+
+start
+
+partition "Seeker Admin" {
+  :Run Connect New Agent\nfor PHP;
+  :Download updated agent ZIP;
+}
+
+partition "Application Team" {
+  :Back up php.ini and current\nseeker extension binary;
+  :Detect PHP API version;
+  :Locate extension_dir;
+}
+
+partition "DevOps / Platform" {
+  :Select matching Seeker\nbinary from package;
+  :Replace seeker.so or seeker.dll;
+  :Verify php.ini contains\nextension and seeker settings;
+  :Restart PHP-FPM, Apache,\nor related runtime;
+}
+
+partition "Application Security" {
+  :Run validation traffic;
+  :Review Seeker UI and\nPHP startup output;
+}
+
+if (Extension loaded and data visible?) then (yes)
+  partition "Application Security" {
+    :Record evidence and close;
+  }
+  stop
+else (no)
+  partition "DevOps / Platform" {
+    :Restore prior binary\nand php.ini backup;
+    :Restart runtime;
+  }
+  stop
+endif
+
+@enduml

@@ -1,0 +1,75 @@
+@startuml
+title Seeker Agent Update - Kubernetes Admission Controller Process
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam defaultFontName Arial
+skinparam activity {
+  BackgroundColor #F7F7F7
+  BorderColor #4C4C4C
+  FontColor #222222
+  DiamondBackgroundColor #FFF6E5
+  DiamondBorderColor #B26B00
+  DiamondFontColor #222222
+  StartColor #5B8FF9
+  EndColor #5B8FF9
+  BarColor #5B8FF9
+}
+skinparam partition {
+  BorderColor #BDBDBD
+  BackgroundColor #FAFAFA
+  FontColor #222222
+}
+skinparam note {
+  BackgroundColor #F5F9FF
+  BorderColor #5B8FF9
+  FontColor #222222
+}
+hide empty description
+
+legend right
+|= Field |= Value |
+| Process | Kubernetes admission-controller-based Seeker agent refresh |
+| Primary message | For Kubernetes injection, refresh the webhook package and image, apply the updated manifest, roll workloads, and validate namespace-level reporting. |
+| Trigger | Seeker agent injection is managed by the Kubernetes admission controller |
+| Entry criteria | Server upgraded; webhook-based injection is in use for one or more namespaces |
+| Exit criteria | Webhook updated, workloads rolled, and injected agents report successfully |
+| Key evidence | Webhook manifest diff, image build log, kubectl apply output, rollout restart log, Seeker validation results |
+endlegend
+
+
+start
+
+partition "Seeker Admin" {
+  :Download updated Kubernetes\nintegration package;
+}
+
+partition "Platform Engineering" {
+  :Update webhook.yaml with\nSEEKER_SERVER_URL and image tag;
+  :Build updated injector image;
+  :Push image to registry;
+  :Apply webhook manifest;
+}
+
+partition "DevOps / Platform" {
+  :Roll restart instrumented\ndeployments by namespace;
+}
+
+partition "Application Security" {
+  :Run validation traffic;
+  :Confirm agents map to the\nexpected projects;
+}
+
+if (Injected agents healthy?) then (yes)
+  partition "Application Security" {
+    :Record evidence and close;
+  }
+  stop
+else (no)
+  partition "Platform Engineering" {
+    :Roll back webhook image\nor prior manifest;
+    :Restart affected workloads;
+  }
+  stop
+endif
+
+@enduml

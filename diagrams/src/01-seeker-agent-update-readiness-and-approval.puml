@@ -1,0 +1,86 @@
+@startuml
+title Seeker Agent Update - Readiness and Approval
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam defaultFontName Arial
+skinparam activity {
+  BackgroundColor #F7F7F7
+  BorderColor #4C4C4C
+  FontColor #222222
+  DiamondBackgroundColor #FFF6E5
+  DiamondBorderColor #B26B00
+  DiamondFontColor #222222
+  StartColor #5B8FF9
+  EndColor #5B8FF9
+  BarColor #5B8FF9
+}
+skinparam partition {
+  BorderColor #BDBDBD
+  BackgroundColor #FAFAFA
+  FontColor #222222
+}
+skinparam note {
+  BackgroundColor #F5F9FF
+  BorderColor #5B8FF9
+  FontColor #222222
+}
+hide empty description
+
+legend right
+|= Field |= Value |
+| Process | Pre-update readiness, risk review, and go/no-go control |
+| Primary message | A Seeker update should not begin until scope, backups, validation traffic, and rollback capability are confirmed. |
+| Trigger | Planned Seeker agent update window |
+| Entry criteria | Server upgrade complete and update request initiated |
+| Exit criteria | Approved go/no-go decision with execution package ready |
+| Key evidence | Application inventory, backup confirmation, smoke-test plan, rollback plan, maintenance approval |
+endlegend
+
+
+start
+
+partition "AppSec / Seeker Admin" {
+  :Confirm Seeker server\nupgrade completed;
+  :Identify impacted apps,\nowners, and environments;
+}
+
+partition "Application Security" {
+  :Capture application code,\nstack, and install type;
+  :Map update path to\nstack-specific procedure;
+}
+
+partition "Application Team" {
+  :Document current agent version,\nattach method, and config path;
+  :Define validation traffic plan;
+}
+
+partition "DevOps / Platform" {
+  :Verify network path to\nSEEKER_SERVER_URL;
+  :Confirm restart or redeploy\nwindow is available;
+  :Confirm backup targets exist;
+}
+
+if (Backups complete?) then (yes)
+else (no)
+  partition "DevOps / Platform" {
+    :Create config and artifact backups;
+  }
+endif
+
+partition "Application Security" {
+  :Review rollback method and\nsuccess criteria;
+}
+
+if (Go/No-Go approved?) then (go)
+  partition "Application Security" {
+    :Release execution package\nto update team;
+  }
+  stop
+else (no-go)
+  partition "Application Security" {
+    :Reschedule and remediate\ngaps before execution;
+  }
+  stop
+endif
+
+@enduml

@@ -1,0 +1,81 @@
+@startuml
+title Seeker Agent Update - .NET Framework Process
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam defaultFontName Arial
+skinparam activity {
+  BackgroundColor #F7F7F7
+  BorderColor #4C4C4C
+  FontColor #222222
+  DiamondBackgroundColor #FFF6E5
+  DiamondBorderColor #B26B00
+  DiamondFontColor #222222
+  StartColor #5B8FF9
+  EndColor #5B8FF9
+  BarColor #5B8FF9
+}
+skinparam partition {
+  BorderColor #BDBDBD
+  BackgroundColor #FAFAFA
+  FontColor #222222
+}
+skinparam note {
+  BackgroundColor #F5F9FF
+  BorderColor #5B8FF9
+  FontColor #222222
+}
+hide empty description
+
+legend right
+|= Field |= Value |
+| Process | .NET Framework Seeker agent refresh for IIS workloads |
+| Primary message | For .NET Framework, preserve dotnet-agent.config, replace binaries under the service path, restart the Seeker service and IIS, then validate telemetry. |
+| Trigger | .NET Framework application included in Seeker agent refresh scope |
+| Entry criteria | Server upgraded; IIS app pools mapped in dotnet-agent.config |
+| Exit criteria | Seeker .NET Agents service and IIS restarted with valid reporting |
+| Key evidence | dotnet-agent.config backup, ZIP deployment record, service restart log, IIS reset log, Seeker validation results |
+endlegend
+
+
+start
+
+partition "Application Security" {
+  :Confirm app-pool to project\nmapping is current;
+}
+
+partition "Application Team" {
+  :Back up dotnet-agent.config;
+}
+
+partition "Seeker Admin" {
+  :Run Connect New Agent\nfor .NET Framework;
+  :Download updated agent ZIP;
+}
+
+partition "Windows / IIS Ops" {
+  :Stop Seeker .NET Agents\nWindows service;
+  :Extract new binaries to\nSeeker dotnet path;
+  :Restore backed-up\nconfig file;
+  :Start Seeker .NET Agents\nservice;
+  :Run iisreset;
+}
+
+partition "Application Security" {
+  :Execute validation traffic;
+  :Review Seeker UI and logs;
+}
+
+if (Telemetry healthy?) then (yes)
+  partition "Application Security" {
+    :Record evidence and close;
+  }
+  stop
+else (no)
+  partition "Windows / IIS Ops" {
+    :Restore prior binaries\nand config backup;
+    :Restart service and IIS;
+  }
+  stop
+endif
+
+@enduml

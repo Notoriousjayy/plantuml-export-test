@@ -1,0 +1,82 @@
+@startuml
+title Seeker Agent Update - Node.js Process
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam defaultFontName Arial
+skinparam activity {
+  BackgroundColor #F7F7F7
+  BorderColor #4C4C4C
+  FontColor #222222
+  DiamondBackgroundColor #FFF6E5
+  DiamondBorderColor #B26B00
+  DiamondFontColor #222222
+  StartColor #5B8FF9
+  EndColor #5B8FF9
+  BarColor #5B8FF9
+}
+skinparam partition {
+  BorderColor #BDBDBD
+  BackgroundColor #FAFAFA
+  FontColor #222222
+}
+skinparam note {
+  BackgroundColor #F5F9FF
+  BorderColor #5B8FF9
+  FontColor #222222
+}
+hide empty description
+
+legend right
+|= Field |= Value |
+| Process | Node.js Seeker agent refresh for server-side JavaScript workloads |
+| Primary message | For Node.js, rerun Connect New Agent, replace the agent package, preserve require()/entry-point loading, restart the service, and validate runtime data. |
+| Trigger | Node.js application included in Seeker agent refresh scope |
+| Entry criteria | Server upgraded; Node.js app uses seeker-inline or SEEKER_APP_ENTRY_POINT |
+| Exit criteria | Node.js app redeployed and reporting healthy runtime activity |
+| Key evidence | Agent ZIP deployment log, entry-point verification, process-manager settings, Seeker validation results |
+endlegend
+
+
+start
+
+partition "Seeker Admin" {
+  :Run Connect New Agent\nfor Node.js;
+  :Download updated agent ZIP;
+}
+
+partition "Application Team" {
+  :Verify seeker-inline load path;
+}
+
+if (require() in first line?) then (yes)
+else (no)
+  partition "Application Team" {
+    :Verify SEEKER_APP_ENTRY_POINT\npoints to startup file;
+  }
+endif
+
+partition "DevOps / Platform" {
+  :Replace deployed Node.js\nagent files;
+  :Verify SEEKER_SERVER_URL\nand SEEKER_PROJECT_KEY;
+  :Restart app or redeploy container;
+}
+
+partition "Application Security" {
+  :Run validation traffic;
+  :Review Seeker UI for\ndata and version;
+}
+
+if (Runtime data visible?) then (yes)
+  partition "Application Security" {
+    :Record evidence and close;
+  }
+  stop
+else (no)
+  partition "DevOps / Platform" {
+    :Restore prior agent package\nor prior image;
+    :Restart app;
+  }
+  stop
+endif
+
+@enduml

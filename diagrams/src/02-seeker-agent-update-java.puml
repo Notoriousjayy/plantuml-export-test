@@ -1,0 +1,84 @@
+@startuml
+title Seeker Agent Update - Java Process
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam defaultFontName Arial
+skinparam activity {
+  BackgroundColor #F7F7F7
+  BorderColor #4C4C4C
+  FontColor #222222
+  DiamondBackgroundColor #FFF6E5
+  DiamondBorderColor #B26B00
+  DiamondFontColor #222222
+  StartColor #5B8FF9
+  EndColor #5B8FF9
+  BarColor #5B8FF9
+}
+skinparam partition {
+  BorderColor #BDBDBD
+  BackgroundColor #FAFAFA
+  FontColor #222222
+}
+skinparam note {
+  BackgroundColor #F5F9FF
+  BorderColor #5B8FF9
+  FontColor #222222
+}
+hide empty description
+
+legend right
+|= Field |= Value |
+| Process | Java Seeker agent refresh for JVM workloads |
+| Primary message | For Java, preserve JVM attachment settings, choose auto-refresh or managed JAR replacement, then validate the reporting version in Seeker. |
+| Trigger | Java application included in Seeker agent refresh scope |
+| Entry criteria | Server upgraded; Java app uses -javaagent and seeker.* settings |
+| Exit criteria | Java workload restarted and reporting updated agent version |
+| Key evidence | Launcher settings, JAR replacement record, app restart log, Seeker Projects > Analysis version check |
+endlegend
+
+
+start
+
+partition "Application Security" {
+  :Identify Java app,\nowner, and environment;
+}
+
+partition "Application Team" {
+  :Verify -javaagent path and\nseeker.server.url / project.key;
+}
+
+if (Managed JAR in image or host?) then (yes)
+  partition "DevOps / Platform" {
+    :Download new\nseeker-agent.jar;
+    :Replace old JAR in\nmanaged location;
+    :Verify package integrity;
+  }
+else (no)
+  partition "Application Team" {
+    :Use automatic refresh path;
+  }
+endif
+
+partition "Application Team" {
+  :Restart app server or\nredeploy application;
+}
+
+partition "Application Security" {
+  :Run validation traffic;
+  :Check Seeker UI for\nagent version alignment;
+}
+
+if (Data and version visible?) then (yes)
+  partition "Application Security" {
+    :Record evidence and close;
+  }
+  stop
+else (no)
+  partition "Application Team" {
+    :Restore prior JAR or\nprior deployment package;
+    :Restart workload;
+  }
+  stop
+endif
+
+@enduml

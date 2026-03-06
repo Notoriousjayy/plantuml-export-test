@@ -1,0 +1,97 @@
+@startuml
+title Seeker Agent Update - Lifecycle Overview
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam defaultFontName Arial
+skinparam activity {
+  BackgroundColor #F7F7F7
+  BorderColor #4C4C4C
+  FontColor #222222
+  DiamondBackgroundColor #FFF6E5
+  DiamondBorderColor #B26B00
+  DiamondFontColor #222222
+  StartColor #5B8FF9
+  EndColor #5B8FF9
+  BarColor #5B8FF9
+}
+skinparam partition {
+  BorderColor #BDBDBD
+  BackgroundColor #FAFAFA
+  FontColor #222222
+}
+skinparam note {
+  BackgroundColor #F5F9FF
+  BorderColor #5B8FF9
+  FontColor #222222
+}
+hide empty description
+
+legend right
+|= Field |= Value |
+| Process | End-to-end Seeker agent update control process |
+| Primary message | Server-first sequencing, stack-specific deployment, and evidence-based validation drive a safe Seeker agent refresh. |
+| Trigger | Approved Seeker server upgrade or mandated Seeker agent refresh |
+| Entry criteria | Affected applications inventoried by application code, owner, stack, and deployment model |
+| Exit criteria | Each in-scope application is updated, validated, and either closed or rolled back with follow-up actions |
+| Key evidence | Change record, stack inventory, backups, deployment logs, Seeker UI version check, validation results |
+endlegend
+
+
+start
+
+partition "AppSec / Seeker Admin" {
+  :Receive Seeker\nserver upgrade trigger;
+  :Confirm server-first rule;
+  :Open change record;
+}
+
+partition "Application Security" {
+  :Inventory in-scope apps by\napplication code and stack;
+  :Classify deployment model;
+}
+
+if (Supported pattern?) then (yes)
+else (no)
+  partition "Application Security" {
+    :Escalate unsupported\nupdate pattern;
+    :Design exception or\nengineering task;
+  }
+  stop
+endif
+
+partition "Application Security" {
+  :Select the applicable
+stack-specific process;
+}
+
+partition "Application Team / DevOps" {
+  :Execute the chosen
+stack-specific update path;
+}
+partition "Application Team / DevOps" {
+  :Back up local config\nand deployment settings;
+  :Download or refresh\nmatching agent package;
+  :Restart or redeploy\ninstrumented workload;
+}
+
+partition "Application Security" {
+  :Run post-update validation;
+}
+
+if (Validation passed?) then (yes)
+  partition "Application Security" {
+    :Record evidence and\nagent version alignment;
+    :Close change;
+  }
+  stop
+else (no)
+  partition "Application Team / DevOps" {
+    :Execute rollback process;
+  }
+  partition "Application Security" {
+    :Capture defect, root cause,\nand rework plan;
+  }
+  stop
+endif
+
+@enduml

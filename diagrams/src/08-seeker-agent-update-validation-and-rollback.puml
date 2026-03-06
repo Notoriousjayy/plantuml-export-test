@@ -1,0 +1,76 @@
+@startuml
+title Seeker Agent Update - Validation and Rollback
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam defaultFontName Arial
+skinparam activity {
+  BackgroundColor #F7F7F7
+  BorderColor #4C4C4C
+  FontColor #222222
+  DiamondBackgroundColor #FFF6E5
+  DiamondBorderColor #B26B00
+  DiamondFontColor #222222
+  StartColor #5B8FF9
+  EndColor #5B8FF9
+  BarColor #5B8FF9
+}
+skinparam partition {
+  BorderColor #BDBDBD
+  BackgroundColor #FAFAFA
+  FontColor #222222
+}
+skinparam note {
+  BackgroundColor #F5F9FF
+  BorderColor #5B8FF9
+  FontColor #222222
+}
+hide empty description
+
+legend right
+|= Field |= Value |
+| Process | Common validation, exception handling, and rollback control |
+| Primary message | A Seeker agent update is only complete when connectivity, preserved configuration, agent-version alignment, runtime traffic, and UI evidence are all confirmed. |
+| Trigger | Any Seeker agent update deployment has completed |
+| Entry criteria | Updated agent package is deployed and workload restarted |
+| Exit criteria | Change closed with evidence, or rollback executed with follow-up action |
+| Key evidence | Connectivity check, config review, app logs, smoke-test evidence, Seeker UI screenshot, rollback record if used |
+endlegend
+
+
+start
+
+partition "Application Security" {
+  :Check server reachability;
+  :Confirm config preserved;
+  :Check Seeker UI agent version;
+}
+
+partition "Application Team" {
+  :Review startup and agent logs;
+  :Generate functional or\nsmoke-test traffic;
+}
+
+partition "Application Security" {
+  :Confirm endpoints, events,\nor findings appear in Seeker;
+}
+
+if (All validation checks pass?) then (yes)
+  partition "Application Security" {
+    :Attach evidence to change record;
+    :Close update process;
+  }
+  stop
+else (no)
+  partition "Application Team / DevOps" {
+    :Restore prior config;
+    :Restore prior agent package\nor prior image;
+    :Restart workload;
+  }
+  partition "Application Security" {
+    :Confirm previous version reconnects;
+    :Open defect and assign\ncorrective action;
+  }
+  stop
+endif
+
+@enduml
