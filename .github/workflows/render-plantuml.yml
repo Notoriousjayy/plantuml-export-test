@@ -8,15 +8,17 @@ on:
       - "diagrams/src/**/*.puml"
       - "diagrams/includes/**/*.puml"
       - "diagrams/config/**/*.puml"
-      - ".github/actions/render-plantuml/**"
+      - "diagrams/**/*.puml"
       - ".github/workflows/render-plantuml.yml"
 
 jobs:
   render:
     runs-on: ubuntu-latest
 
+    # Avoid infinite loops when the workflow auto-commits generated images.
     if: github.actor != 'github-actions[bot]'
 
+    # Required for committing back to the repo with the default GITHUB_TOKEN.
     permissions:
       contents: write
 
@@ -25,28 +27,97 @@ jobs:
         uses: actions/checkout@v5
         with:
           persist-credentials: true
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install system dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            graphviz \
+            imagemagick \
+            curl \
+            ca-certificates \
+            fonts-dejavu-core
+
       - name: Ensure output directories exist
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p diagrams/out/png diagrams/out/svg diagrams/out/jpg
 
-      - name: Link config into diagrams/src
+      - name: Download latest PlantUML
         shell: bash
         run: |
           set -euo pipefail
-          ln -sf ../config/config.puml diagrams/src/config.puml
+          curl -fsSL -o plantuml.jar \
+            https://github.com/plantuml/plantuml/releases/latest/download/plantuml.jar
+          java -jar plantuml.jar -version
 
-      - name: Render diagrams (latest PlantUML)
-        uses: ./.github/actions/render-plantuml
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          source-dir: diagrams/src
-          formats: "png svg"
-          generate-jpg: "true"
-          fail-on-error: "true"
-          plantuml-version: "latest"
+      - name: Render PNG diagrams
+        shell: bash
+        run: |
+          set -euo pipefail
+          LOG=plantuml.render.png.log
+          # Note: -o uses absolute paths to ensure output goes exactly to diagrams/out/*
+          java \
+            -Djava.awt.headless=true \
+            -Dplantuml.include.path="$GITHUB_WORKSPACE/diagrams/includes" \
+            -jar plantuml.jar \
+            -v \
+            -charset UTF-8 \
+            -tpng \
+            -o "$GITHUB_WORKSPACE/diagrams/out/png" \
+            -config "$GITHUB_WORKSPACE/diagrams/config/config.puml" \
+            "$GITHUB_WORKSPACE/diagrams/src" \
+            | tee "$LOG"
+
+          # PlantUML may exit 0 even with errors; fail the job if errors are reported.
+          if grep -Eqi "(^Error line|Some diagram description contains errors)" "$LOG"; then
+            echo "\nPlantUML reported render errors. See $LOG." >&2
+            exit 1
+          fi
+
+      - name: Render SVG diagrams
+        shell: bash
+        run: |
+          set -euo pipefail
+          LOG=plantuml.render.svg.log
+          java \
+            -Djava.awt.headless=true \
+            -Dplantuml.include.path="$GITHUB_WORKSPACE/diagrams/includes" \
+            -jar plantuml.jar \
+            -v \
+            -charset UTF-8 \
+            -tsvg \
+            -o "$GITHUB_WORKSPACE/diagrams/out/svg" \
+            -config "$GITHUB_WORKSPACE/diagrams/config/config.puml" \
+            "$GITHUB_WORKSPACE/diagrams/src" \
+            | tee "$LOG"
+
+          if grep -Eqi "(^Error line|Some diagram description contains errors)" "$LOG"; then
+            echo "\nPlantUML reported render errors. See $LOG." >&2
+            exit 1
+          fi
+
+      - name: Convert PNG -> JPG (optional)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Preserve folder structure under diagrams/out/png
+          while IFS= read -r -d '' f; do
+            rel="${f#diagrams/out/png/}"
+            out="diagrams/out/jpg/${rel%.png}.jpg"
+            mkdir -p "$(dirname "$out")"
+            convert "$f" -quality 92 "$out"
+          done < <(find diagrams/out/png -type f -name '*.png' -print0)
 
       - name: Commit rendered diagrams
         uses: stefanzweifel/git-auto-commit-action@v7
